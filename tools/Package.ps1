@@ -8,10 +8,10 @@ if($LASTEXITCODE){throw 'Build failed'}
 & "$root\tests\Verify-Native.ps1"
 & "$root\tests\Verify-Workflows.ps1"
 & "$root\tests\Verify-Host.ps1"
-$out=Join-Path $root ('dist\usb-tether-helper-'+$Version+'-windows-x64')
+$out=Join-Path $root ('dist\USBetter-'+$Version+'-windows-x64')
 if(Test-Path -LiteralPath $out){throw 'Package already exists; choose a new version or remove that exact output directory.'}
 [void][IO.Directory]::CreateDirectory($out)
-Copy-Item -LiteralPath "$root\build\UsbTetherHelper.exe" -Destination $out
+Copy-Item -LiteralPath "$root\build\USBetter.exe" -Destination $out
 foreach($name in 'scripts','docs','README.md','LICENSE','THIRD_PARTY.md','VERSION'){Copy-Item -LiteralPath (Join-Path $root $name) -Destination $out -Recurse}
 $sourceFiles=@('src','scripts','tests','tools','.github','docs','README.md','LICENSE','THIRD_PARTY.md','VERSION','.gitignore')
 $sourceManifest=@(foreach($name in $sourceFiles){Get-ChildItem -LiteralPath (Join-Path $root $name) -Recurse -File | ForEach-Object {

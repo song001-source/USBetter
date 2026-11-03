@@ -1,4 +1,4 @@
-name: Windows x64 preview
+name: USBetter Windows x64
 on:
   push:
     branches: [main]
@@ -16,7 +16,7 @@ jobs:
         run: ./tools/Package.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-x64-preview
+          name: USBetter-windows-x64
           path: |
             dist/*.zip
             dist/*.sha256
@@ -35,7 +35,7 @@ jobs:
           if ($env:GITHUB_REF_NAME -ne "v$version") { throw 'Tag differs from VERSION' }
       - uses: actions/download-artifact@v4
         with:
-          name: windows-x64-preview
+          name: USBetter-windows-x64
           path: dist
       - name: Publish preview
         shell: powershell
@@ -43,4 +43,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $assets = @(Get-ChildItem dist -File | ForEach-Object FullName)
-          gh release create $env:GITHUB_REF_NAME @assets --prerelease --title "USB Tether Helper $env:GITHUB_REF_NAME" --notes-file docs/RELEASE.md
+          gh release create $env:GITHUB_REF_NAME @assets --prerelease --title "USBetter $env:GITHUB_REF_NAME" --notes-file docs/RELEASE.md

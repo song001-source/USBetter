@@ -1,15 +1,18 @@
 ﻿[CmdletBinding()]
 param([ValidateSet('Auto','Connect','Detect','Choose','Inspect','Setup','Pause','Resume','Uninstall','Diagnose')][string]$Action='Diagnose',
-      [string]$DataDir=(Join-Path $env:LOCALAPPDATA 'USB Tether Helper'), [string]$SessionKey='manual', [string]$EligibleKeys='', [int]$LauncherPid=0)
+      [string]$DataDir=(Join-Path $env:LOCALAPPDATA 'USBetter'), [string]$SessionKey='manual', [string]$EligibleKeys='', [int]$LauncherPid=0)
 . "$PSScriptRoot\Core.ps1"
 Add-Type -AssemblyName System.Windows.Forms
 $programDir=Split-Path $PSScriptRoot
-$installDir=Join-Path $env:LOCALAPPDATA 'Programs\USB Tether Helper'
+$installDir=Join-Path $env:LOCALAPPDATA 'Programs\USBetter'
 [void][IO.Directory]::CreateDirectory($DataDir)
 $configPath=Join-Path $DataDir 'config.json'
 $statusPath=Join-Path $DataDir 'status.txt'
-$taskName='UsbTetherHelper-'+[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-$config=Read-Json $configPath ([pscustomobject]@{Schema=1;AdbPath='';AdbVersion='';AdbHashes=@{};Preferred='';Devices=@();Paused=$false;Migrated=$false})
+$taskName='USBetter-'+[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$configSource=$configPath
+$previousConfig=Join-Path $env:LOCALAPPDATA 'USB Tether Helper\config.json'
+if($Action -eq 'Setup' -and -not (Test-Path -LiteralPath $configPath) -and (Test-Path -LiteralPath $previousConfig)){$configSource=$previousConfig}
+$config=Read-Json $configSource ([pscustomobject]@{Schema=1;AdbPath='';AdbVersion='';AdbHashes=@{};Preferred='';Devices=@();Paused=$false;Migrated=$false})
 $script:deadline=[DateTime]::UtcNow.AddSeconds(120)
 function Save-Config { Write-JsonAtomic $configPath $config }
 function Set-Status([string]$State,[string]$Detail='') {
@@ -19,10 +22,10 @@ function Set-Status([string]$State,[string]$Detail='') {
     if ((Test-Path -LiteralPath $log) -and (Get-Item -LiteralPath $log).Length -gt 131072) { Move-Item -LiteralPath $log -Destination "$log.1" -Force }
     Add-Content -LiteralPath $log -Encoding UTF8 -Value ((Get-Date -Format s)+' '+$text)
 }
-function Message($Text) { [void][Windows.Forms.MessageBox]::Show($Text,'USB Tether Helper') }
+function Message($Text) { [void][Windows.Forms.MessageBox]::Show($Text,'USBetter') }
 function Show-AuthorizationNotice {
     $notice=[Windows.Forms.NotifyIcon]::new(); $notice.Icon=[Drawing.SystemIcons]::Information; $notice.Visible=$true
-    $notice.ShowBalloonTip(8000,'USB Tether Helper','请在手机上允许 USB 调试；授权后自动继续。',[Windows.Forms.ToolTipIcon]::Info)
+    $notice.ShowBalloonTip(8000,'USBetter','请在手机上允许 USB 调试；授权后自动继续。',[Windows.Forms.ToolTipIcon]::Info)
     return $notice
 }
 function Invoke-Process($Exe,[string[]]$Arguments,[int]$Seconds=10) {
@@ -214,7 +217,7 @@ function Register-Startup {
     $recovery=New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(1)) -RepetitionInterval (New-TimeSpan -Minutes 1)
     $principal=New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
     $settings=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-    $execute=New-ScheduledTaskAction -Execute (Join-Path $installDir 'UsbTetherHelper.exe')
+    $execute=New-ScheduledTaskAction -Execute (Join-Path $installDir 'USBetter.exe')
     Register-ScheduledTask -TaskName $taskName -Action $execute -Trigger @($trigger,$recovery) -Principal $principal -Settings $settings -Force | Out-Null
 }
 function Schedule-ProgramRemoval {
@@ -226,8 +229,8 @@ while(__PID__ -gt 0 -and (Get-Process -Id __PID__ -ErrorAction SilentlyContinue)
  if([DateTime]::UtcNow -gt $until){exit 1}; Start-Sleep -Milliseconds 200
 }
 $programs=[IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Programs'))
-$target=[IO.Path]::GetFullPath((Join-Path $programs 'USB Tether Helper'))
-if([IO.Path]::GetDirectoryName($target) -ne $programs -or [IO.Path]::GetFileName($target) -ne 'USB Tether Helper'){exit 1}
+$target=[IO.Path]::GetFullPath((Join-Path $programs 'USBetter'))
+if([IO.Path]::GetDirectoryName($target) -ne $programs -or [IO.Path]::GetFileName($target) -ne 'USBetter'){exit 1}
 if(Test-Path -LiteralPath $target){Remove-Item -LiteralPath $target -Recurse -Force}
 '@
     $cleanup=$cleanup.Replace('__PID__',[string]$LauncherPid)
@@ -238,23 +241,24 @@ if(Test-Path -LiteralPath $target){Remove-Item -LiteralPath $target -Recurse -Fo
     if($result.ReturnValue -ne 0){throw '自启已移除；程序文件清理未启动，请退出后手动删除安装目录。'}
 }
 function Install {
-    $check=Start-Process -FilePath (Join-Path $programDir 'UsbTetherHelper.exe') -ArgumentList '--self-test' -WindowStyle Hidden -Wait -PassThru
+    $check=Start-Process -FilePath (Join-Path $programDir 'USBetter.exe') -ArgumentList '--self-test' -WindowStyle Hidden -Wait -PassThru
     if($check.ExitCode -ne 0){throw '安装包原生自检失败。'}
     $backup=Join-Path $DataDir ('backup-'+(Get-Date -Format 'yyyyMMddHHmmssfff'))
     [void][IO.Directory]::CreateDirectory($backup)
     $oldTask=Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-    $legacy=@(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskName -eq ('AzqUsbTether-'+[Security.Principal.WindowsIdentity]::GetCurrent().User.Value) })
+    $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $legacy=@(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskName -in @(('AzqUsbTether-'+$sid),('UsbTetherHelper-'+$sid)) })
     $same=[IO.Path]::GetFullPath($programDir) -eq [IO.Path]::GetFullPath($installDir)
     if(Test-Path -LiteralPath $configPath){Copy-Item -LiteralPath $configPath -Destination (Join-Path $backup 'config.json')}
     if($oldTask){Export-ScheduledTask -TaskName $taskName | Set-Content -LiteralPath (Join-Path $backup 'task.xml') -Encoding Unicode}
-    foreach($t in $legacy){Export-ScheduledTask -TaskName $t.TaskName | Set-Content -LiteralPath (Join-Path $backup 'legacy.xml') -Encoding Unicode}
+    foreach($t in $legacy){Export-ScheduledTask -TaskName $t.TaskName | Set-Content -LiteralPath (Join-Path $backup ($t.TaskName+'.xml')) -Encoding Unicode}
     if(-not $same -and (Test-Path -LiteralPath $installDir)){Copy-Item -LiteralPath $installDir -Destination (Join-Path $backup 'program') -Recurse}
     try {
         if($oldTask){Disable-ScheduledTask -TaskName $taskName | Out-Null; Stop-ScheduledTask -TaskName $taskName}
         foreach($t in $legacy){Disable-ScheduledTask -TaskName $t.TaskName | Out-Null; Stop-ScheduledTask -TaskName $t.TaskName}
         # Target only executables installed under this user's known program directories.
-        foreach($p in @(Get-CimInstance Win32_Process -Filter "Name='UsbTetherHelper.exe' OR Name='DeviceWatcher.exe'")) {
-            if($p.ProcessId -ne $LauncherPid -and $p.ExecutablePath -in @((Join-Path $installDir 'UsbTetherHelper.exe'),(Join-Path $env:LOCALAPPDATA 'AzqUsbTether\DeviceWatcher.exe'))){Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop}
+        foreach($p in @(Get-CimInstance Win32_Process -Filter "Name='USBetter.exe' OR Name='UsbTetherHelper.exe' OR Name='DeviceWatcher.exe'")) {
+            if($p.ProcessId -ne $LauncherPid -and $p.ExecutablePath -in @((Join-Path $installDir 'USBetter.exe'),(Join-Path $env:LOCALAPPDATA 'Programs\USB Tether Helper\UsbTetherHelper.exe'),(Join-Path $env:LOCALAPPDATA 'AzqUsbTether\DeviceWatcher.exe'))){Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop}
         }
         if(-not $config.Migrated){
             foreach($t in $legacy){
@@ -265,10 +269,10 @@ function Install {
         }
         if(-not $same){
             [void][IO.Directory]::CreateDirectory($installDir)
-            foreach($name in 'UsbTetherHelper.exe','scripts','docs','README.md','LICENSE','THIRD_PARTY.md','VERSION'){
+            foreach($name in 'USBetter.exe','scripts','docs','README.md','LICENSE','THIRD_PARTY.md','VERSION'){
                 Copy-Item -LiteralPath (Join-Path $programDir $name) -Destination $installDir -Recurse -Force
             }
-            foreach($file in @(Get-ChildItem -LiteralPath (Join-Path $programDir 'scripts') -File)+@(Get-Item -LiteralPath (Join-Path $programDir 'UsbTetherHelper.exe'))){
+            foreach($file in @(Get-ChildItem -LiteralPath (Join-Path $programDir 'scripts') -File)+@(Get-Item -LiteralPath (Join-Path $programDir 'USBetter.exe'))){
                 $relative=$file.FullName.Substring($programDir.Length+1)
                 if((Get-FileHash -LiteralPath $file.FullName).Hash -ne (Get-FileHash -LiteralPath (Join-Path $installDir $relative)).Hash){throw '程序复制校验失败。'}
             }
@@ -279,21 +283,21 @@ function Install {
         $until=[DateTime]::UtcNow.AddSeconds(10)
         do {
             Start-Sleep -Milliseconds 250
-            $started=@(Get-CimInstance Win32_Process -Filter "Name='UsbTetherHelper.exe'" | Where-Object ExecutablePath -eq (Join-Path $installDir 'UsbTetherHelper.exe'))
+            $started=@(Get-CimInstance Win32_Process -Filter "Name='USBetter.exe'" | Where-Object ExecutablePath -eq (Join-Path $installDir 'USBetter.exe'))
             if($started.Count){break}
         } while([DateTime]::UtcNow -lt $until)
         if(-not $started.Count){throw '新监听器未启动，恢复旧安装。'}
     } catch {
         $failure=$_
         if(Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue){Disable-ScheduledTask -TaskName $taskName | Out-Null; Stop-ScheduledTask -TaskName $taskName}
-        foreach($p in @(Get-CimInstance Win32_Process -Filter "Name='UsbTetherHelper.exe'")){
-            if($p.ProcessId -ne $LauncherPid -and $p.ExecutablePath -eq (Join-Path $installDir 'UsbTetherHelper.exe')){Stop-Process -Id $p.ProcessId -Force}
+        foreach($p in @(Get-CimInstance Win32_Process -Filter "Name='USBetter.exe'")){
+            if($p.ProcessId -ne $LauncherPid -and $p.ExecutablePath -eq (Join-Path $installDir 'USBetter.exe')){Stop-Process -Id $p.ProcessId -Force}
         }
         if(-not $same -and (Test-Path -LiteralPath (Join-Path $backup 'program'))){Copy-Item -Path (Join-Path $backup 'program\*') -Destination $installDir -Recurse -Force}
         if(Test-Path -LiteralPath (Join-Path $backup 'config.json')){Copy-Item -LiteralPath (Join-Path $backup 'config.json') -Destination $configPath -Force}
         if($oldTask){Register-ScheduledTask -TaskName $taskName -Xml (Get-Content -LiteralPath (Join-Path $backup 'task.xml') -Raw) -Force | Out-Null; if($oldTask.State -ne 'Disabled'){Start-ScheduledTask -TaskName $taskName}}
         else {Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue}
-        foreach($t in $legacy){Register-ScheduledTask -TaskName $t.TaskName -Xml (Get-Content -LiteralPath (Join-Path $backup 'legacy.xml') -Raw) -Force | Out-Null; if($t.State -ne 'Disabled'){Start-ScheduledTask -TaskName $t.TaskName}}
+        foreach($t in $legacy){Register-ScheduledTask -TaskName $t.TaskName -Xml (Get-Content -LiteralPath (Join-Path $backup ($t.TaskName+'.xml')) -Raw) -Force | Out-Null; if($t.State -ne 'Disabled'){Start-ScheduledTask -TaskName $t.TaskName}}
         throw $failure
     }
 }
@@ -319,7 +323,7 @@ function Main {
             Set-Status '已卸载' '自启已移除，手机共享状态保留。退出后清理安装目录。'
             if([Windows.Forms.MessageBox]::Show('自启已移除，手机共享状态保留。是否删除本地配置、日志和备份？','卸载','YesNo') -eq 'Yes'){
                 $resolved=[IO.Path]::GetFullPath($DataDir)
-                $expected=[IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'USB Tether Helper'))
+                $expected=[IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'USBetter'))
                 if($resolved -ne $expected){throw '拒绝删除非默认数据目录。'}
                 Remove-Item -LiteralPath $resolved -Recurse -Force
             }

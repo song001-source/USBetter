@@ -1,4 +1,4 @@
-# USB Tether Helper
+# USBetter
 
 Windows x64 上的 Android USB 网络共享助手。连接手机并完成 USB 调试授权后，工具自动识别设备、获取配置、开启共享，并在系统托盘显示连接状态。
 
@@ -15,8 +15,8 @@ Windows x64 上的 Android USB 网络共享助手。连接手机并完成 USB �
 
 准备 Windows x64 电脑、Android 手机和支持数据传输的 USB 线。
 
-1. 从 [Actions 构建页面](https://github.com/song001-source/usb-tether-helper/actions/workflows/build.yml) 下载 `windows-x64-preview` 构建产物，解压其中的 Windows x64 ZIP。
-2. 双击 `UsbTetherHelper.exe`，按引导完成设置。程序使用当前用户权限安装。
+1. 从 [Actions 构建页面](https://github.com/song001-source/USBetter/actions/workflows/build.yml) 下载 `USBetter-windows-x64` 构建产物，解压其中的 Windows x64 ZIP。
+2. 双击 `USBetter.exe`，按引导完成设置。程序使用当前用户权限安装。
 3. 设置会查找已保存路径和系统中的 ADB。也可从 [Google 官方页面](https://developer.android.com/tools/releases/platform-tools) 下载并解压 Platform-Tools，再选择其中的 `adb.exe`；离线准备的完整目录同样可用。
 4. 手机开启开发者选项与 USB 调试，通过 USB 连接电脑，解锁并允许本电脑调试。
 5. 授权后自动继续连接。托盘显示“USB 网卡就绪”时，手机对应的网卡已取得有效 IPv4 地址和默认网关。
@@ -29,11 +29,11 @@ Windows x64 上的 Android USB 网络共享助手。连接手机并完成 USB �
 
 每次登录或新接入时执行一次连接流程。连接完成后，手机端的 USB 模式由用户继续控制。当前手机接入期间保持所选目标，切换手机可使用“选择手机”。
 
-“暂停”同时关闭自动连接和计划任务恢复，“恢复”重新启用。升级时再次运行新版本的 `UsbTetherHelper.exe --setup`。
+“暂停”同时关闭自动连接和计划任务恢复，“恢复”重新启用。升级时再次运行新版本的 `USBetter.exe --setup`。
 
 ## 命令行
 
-统一入口为 `UsbTetherHelper.exe`，默认启动设置或托盘。
+统一入口为 `USBetter.exe`，默认启动设置或托盘。
 
 | 参数 | 操作 |
 | --- | --- |
@@ -53,8 +53,8 @@ Windows x64 上的 Android USB 网络共享助手。连接手机并完成 USB �
 
 | 内容 | 位置 |
 | --- | --- |
-| 程序文件 | `%LOCALAPPDATA%\Programs\USB Tether Helper` |
-| 配置、日志、状态与升级备份 | `%LOCALAPPDATA%\USB Tether Helper` |
+| 程序文件 | `%LOCALAPPDATA%\Programs\USBetter` |
+| 配置、日志、状态与升级备份 | `%LOCALAPPDATA%\USBetter` |
 | 脱敏诊断 | 数据目录中的 `diagnostic-public.json` |
 
 首次设置会注册当前用户的登录启动任务和进程恢复任务。已有 `AzqUsbTether` 安装会在备份后迁移，原手机作为已知目标重新识别。
@@ -81,7 +81,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Package.ps1
 - [兼容性与实机验收记录](docs/ACCEPTANCE.md)
 - [架构与连接机制](docs/ARCHITECTURE.md)
 - [发布说明](docs/RELEASE.md)
-- [故障反馈](https://github.com/song001-source/usb-tether-helper/issues/new?template=bug_report.md)
+- [故障反馈](https://github.com/song001-source/USBetter/issues/new?template=bug_report.md)
 
 ## 许可
 

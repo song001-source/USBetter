@@ -3,12 +3,12 @@ $temp=Join-Path ([IO.Path]::GetTempPath()) ('uth-host-中文 空格-'+[guid]::Ne
 $savedLocal=$env:LOCALAPPDATA
 $resident=$null;$restarted=$null
 try{
-    $app=Join-Path $temp 'app';$data=Join-Path $temp 'USB Tether Helper'
+    $app=Join-Path $temp 'app';$data=Join-Path $temp 'USBetter'
     [void][IO.Directory]::CreateDirectory($app);[void][IO.Directory]::CreateDirectory($data)
-    Copy-Item -LiteralPath "$PSScriptRoot\..\build\UsbTetherHelper.exe" -Destination $app
+    Copy-Item -LiteralPath "$PSScriptRoot\..\build\USBetter.exe" -Destination $app
     [IO.File]::WriteAllText((Join-Path $data 'config.json'),'{"Paused":true}')
     [IO.File]::WriteAllText((Join-Path $data 'paused'),'paused')
-    $env:LOCALAPPDATA=$temp;$exe=Join-Path $app 'UsbTetherHelper.exe'
+    $env:LOCALAPPDATA=$temp;$exe=Join-Path $app 'USBetter.exe'
     $resident=Start-Process -FilePath $exe -ArgumentList '--resident' -WindowStyle Hidden -PassThru
     $until=[DateTime]::UtcNow.AddSeconds(15)
     do{Start-Sleep -Milliseconds 100;$files=@(Get-ChildItem -LiteralPath $data -Filter 'attachments-*.txt')}while(-not $files.Count -and [DateTime]::UtcNow -lt $until)

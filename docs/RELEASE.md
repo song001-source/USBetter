@@ -1,10 +1,10 @@
-# USB Tether Helper 0.1.0-preview.1
+# USBetter 0.1.0-preview.1
 
 首个通用化开发预览：Windows x64 原生托盘与 USB 事件监听，按需 PowerShell 连接。严格关联 ADB、USB 根设备与目标网卡，自动配置，不需要填写设备 ID 或序列号。仅 MIT 源码；不捆绑 ADB。
 
 兼容性仍在验证，详情见 `docs/ACCEPTANCE.md`。没有“所有 Android 手机通用”的保证。首次实机设置、重启登录、物理拔插、文件传输保持、升级回滚，以及第二台电脑和非小米手机组合仍须完成验收。旧版本实验结果不作为本版本证据。
 
-下载 ZIP 后解压并双击 `UsbTetherHelper.exe`，按引导准备官方完整 Platform-Tools 并在手机授权 USB 调试。SHA-256 文件用于校验 ZIP，包内 `manifest.json` 用于校验逐文件内容。
+下载 ZIP 后解压并双击 `USBetter.exe`，按引导准备官方完整 Platform-Tools 并在手机授权 USB 调试。SHA-256 文件用于校验 ZIP，包内 `manifest.json` 用于校验逐文件内容。
 
 ## 公开前检查
 

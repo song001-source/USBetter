@@ -1,5 +1,5 @@
 ﻿$ErrorActionPreference='Stop'
-$exe=Join-Path $PSScriptRoot '..\build\UsbTetherHelper.exe'
+$exe=Join-Path $PSScriptRoot '..\build\USBetter.exe'
 $p=Start-Process -FilePath $exe -ArgumentList '--self-test' -WindowStyle Hidden -Wait -PassThru
 if($p.ExitCode -ne 0){throw 'Native state/argument tests failed'}
 $p=Start-Process -FilePath $exe -ArgumentList '--invalid' -WindowStyle Hidden -Wait -PassThru

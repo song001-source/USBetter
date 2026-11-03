@@ -198,7 +198,7 @@ static bool Client(const wstring& arg,bool show){
         auto output=GetStdHandle(STD_OUTPUT_HANDLE);auto type=GetFileType(output);
         if(type==FILE_TYPE_PIPE||type==FILE_TYPE_DISK){DWORD written;auto text=reply+"\r\n";WriteFile(output,text.data(),(DWORD)text.size(),&written,nullptr);}
         else if(AttachConsole(ATTACH_PARENT_PROCESS)){DWORD written;auto text=Wide(reply)+L"\r\n";WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE),text.data(),(DWORD)text.size(),&written,nullptr);}
-        else MessageBoxW(nullptr,Wide(reply).c_str(),L"USB Tether Helper",MB_OK);
+        else MessageBoxW(nullptr,Wide(reply).c_str(),L"USBetter",MB_OK);
     }return !reply.empty();
 }
 static NOTIFYICONDATAW icon{};
@@ -215,7 +215,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd,UINT msg,WPARAM w,LPARAM l){
         const wchar_t* cmds[]={L"Connect",L"Detect",L"Choose",L"Pause",L"Resume",L"Diagnose",L"Setup",L"Uninstall"};
         if(item>0&&item<=8){
             if(item==7){ // Run setup outside the resident job: it replaces this executable.
-                ShellExecuteW(nullptr,L"open",(directory+L"\\UsbTetherHelper.exe").c_str(),L"--setup",directory.c_str(),SW_HIDE);
+                ShellExecuteW(nullptr,L"open",(directory+L"\\USBetter.exe").c_str(),L"--setup",directory.c_str(),SW_HIDE);
             }else Enqueue(cmds[item-1]);
         }return 0;
     }
@@ -245,11 +245,11 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int){
         wstring arg=argc==1?L"":args[1];if(argc>2)return 2;
         if(!arg.empty()&&arg!=L"--setup"&&arg!=L"--status"&&arg!=L"--resident"&&Command(arg).empty())return 2;
         wchar_t module[32768],local[32768];GetModuleFileNameW(nullptr,module,32768);GetEnvironmentVariableW(L"LOCALAPPDATA",local,32768);
-        directory=module;directory.resize(directory.find_last_of(L'\\'));dataDir=wstring(local)+L"\\USB Tether Helper";CreateDirectoryW(dataDir.c_str(),nullptr);
+        directory=module;directory.resize(directory.find_last_of(L'\\'));dataDir=wstring(local)+L"\\USBetter";CreateDirectoryW(dataDir.c_str(),nullptr);
         HANDLE token;if(!OpenProcessToken(GetCurrentProcess(),TOKEN_QUERY,&token))return 1;
         TOKEN_STATISTICS stats{};DWORD size;if(!GetTokenInformation(token,TokenStatistics,&stats,sizeof(stats),&size)){CloseHandle(token);return 1;}CloseHandle(token);
         session=std::to_wstring(stats.AuthenticationId.HighPart)+L"-"+std::to_wstring(stats.AuthenticationId.LowPart);
-        pipeName=L"\\\\.\\pipe\\UsbTetherHelper-"+session;
+        pipeName=L"\\\\.\\pipe\\USBetter-"+session;
         quitEvent=CreateEventW(nullptr,TRUE,FALSE,nullptr);cancelEvent=CreateEventW(nullptr,TRUE,FALSE,nullptr);
         if(arg==L"--setup"||(arg.empty()&&GetFileAttributesW((dataDir+L"\\config.json").c_str())==INVALID_FILE_ATTRIBUTES)){
             // The bootstrap exits so upgrades can replace the installed executable.
@@ -262,17 +262,17 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int){
         }
         if(arg!=L"--resident"&&Client(arg.empty()?L"--status":arg,!arg.empty()))return 0;
         if(arg==L"--status"){
-            MessageBoxW(nullptr,(L"监听器未运行。\n"+Wide(Read(dataDir+L"\\status.txt"))).c_str(),L"USB Tether Helper",MB_OK);return 1;
+            MessageBoxW(nullptr,(L"监听器未运行。\n"+Wide(Read(dataDir+L"\\status.txt"))).c_str(),L"USBetter",MB_OK);return 1;
         }
         HANDLE lock=CreateFileW((dataDir+L"\\resident.lock").c_str(),GENERIC_READ|GENERIC_WRITE,0,nullptr,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
         if(lock==INVALID_HANDLE_VALUE)return GetLastError()==ERROR_SHARING_VIOLATION?0:1;
         paused=GetFileAttributesW((dataDir+L"\\paused").c_str())!=INVALID_FILE_ATTRIBUTES||arg==L"--pause"||arg==L"--uninstall";
         changed=CreateEventW(nullptr,FALSE,FALSE,nullptr);actions=CreateEventW(nullptr,FALSE,FALSE,nullptr);
-        WNDCLASSW wc{};wc.lpfnWndProc=WindowProc;wc.hInstance=instance;wc.lpszClassName=L"UsbTetherHelper";RegisterClassW(&wc);
-        window=CreateWindowW(wc.lpszClassName,L"USB Tether Helper",0,0,0,0,0,nullptr,nullptr,instance,nullptr);
+        WNDCLASSW wc{};wc.lpfnWndProc=WindowProc;wc.hInstance=instance;wc.lpszClassName=L"USBetter";RegisterClassW(&wc);
+        window=CreateWindowW(wc.lpszClassName,L"USBetter",0,0,0,0,0,nullptr,nullptr,instance,nullptr);
         if(!window||!changed||!actions)throw std::runtime_error("initialization");
         icon.cbSize=sizeof(icon);icon.hWnd=window;icon.uID=1;icon.uCallbackMessage=WM_APP+1;icon.hIcon=LoadIconW(nullptr,IDI_APPLICATION);
-        icon.uFlags=NIF_MESSAGE|NIF_ICON|NIF_TIP;wcscpy_s(icon.szTip,L"USB Tether Helper");Shell_NotifyIconW(NIM_ADD,&icon);SetTimer(window,1,2000,nullptr);
+        icon.uFlags=NIF_MESSAGE|NIF_ICON|NIF_TIP;wcscpy_s(icon.szTip,L"USBetter");Shell_NotifyIconW(NIM_ADD,&icon);SetTimer(window,1,2000,nullptr);
         HCMNOTIFICATION notification=nullptr;CM_NOTIFY_FILTER filter{};filter.cbSize=sizeof(filter);filter.FilterType=CM_NOTIFY_FILTER_TYPE_DEVICEINSTANCE;filter.Flags=CM_NOTIFY_FILTER_FLAG_ALL_DEVICE_INSTANCES;
         if(CM_Register_Notification(&filter,nullptr,Notify,&notification)!=CR_SUCCESS)throw std::runtime_error("notification registration");
         if(paused)Status(L"已暂停");

@@ -63,27 +63,33 @@ try {
     [void][IO.Directory]::CreateDirectory((Join-Path $programDir 'scripts'))
     [void][IO.Directory]::CreateDirectory((Join-Path $programDir 'docs'))
     [void][IO.Directory]::CreateDirectory($installDir)
-    foreach($name in 'UsbTetherHelper.exe','README.md','LICENSE','THIRD_PARTY.md','VERSION'){
+    foreach($name in 'USBetter.exe','README.md','LICENSE','THIRD_PARTY.md','VERSION'){
         [IO.File]::WriteAllText((Join-Path $programDir $name),'new')
     }
     [IO.File]::WriteAllText((Join-Path $programDir 'scripts\Helper.ps1'),'new script')
-    [IO.File]::WriteAllText((Join-Path $installDir 'UsbTetherHelper.exe'),'old')
+    [IO.File]::WriteAllText((Join-Path $installDir 'USBetter.exe'),'old')
     Save-Config;$baseline=Get-Content -LiteralPath $configPath -Raw
     function Start-Process { [pscustomobject]@{ExitCode=0} }
-    function Get-ScheduledTask($TaskName){if($TaskName){[pscustomobject]@{TaskName=$TaskName;State='Ready'}}}
+    $script:legacyTask='UsbTetherHelper-'+[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    function Get-ScheduledTask($TaskName){
+        if($TaskName){[pscustomobject]@{TaskName=$TaskName;State='Ready'}}
+        else{[pscustomobject]@{TaskName=$script:legacyTask;State='Ready';Actions=@([pscustomobject]@{Arguments=''})}}
+    }
     function Export-ScheduledTask { '<old-task />' }
     function Disable-ScheduledTask { }
     function Stop-ScheduledTask { }
     function Start-ScheduledTask { $script:restoredStarted=$true }
     function Get-CimInstance { @() }
     function Register-Startup { throw 'injected failure' }
-    function Register-ScheduledTask($TaskName,$Xml){$script:restoredXml=$Xml}
+    $script:restoredNames=@()
+    function Register-ScheduledTask($TaskName,$Xml){$script:restoredXml=$Xml;$script:restoredNames+=,$TaskName}
     $failed=$false
     try{Install}catch{$failed=$true}
     Assert $failed 'Rollback injection must fail install'
-    Assert ((Get-Content -LiteralPath (Join-Path $installDir 'UsbTetherHelper.exe') -Raw) -eq 'old') 'Old program restored'
+    Assert ((Get-Content -LiteralPath (Join-Path $installDir 'USBetter.exe') -Raw) -eq 'old') 'Old program restored'
     Assert ((Get-Content -LiteralPath $configPath -Raw) -eq $baseline) 'Old config restored'
     Assert ($script:restoredXml -match 'old-task' -and $script:restoredStarted) 'Old task restored and restarted'
+    Assert ($script:legacyTask -in $script:restoredNames -and $taskName -in $script:restoredNames) 'Renamed and legacy tasks restored separately'
     'PASS: simulated targeted connection, config persistence, active target, failure invalidation, authorization timeout/continue, unassociated safe stop, injected upgrade rollback'
 }finally{
     $resolved=[IO.Path]::GetFullPath($temp)
