@@ -1,0 +1,17 @@
+/build/
+/dist/
+*.obj
+*.exe
+*.pdb
+*.zip
+*.log
+*.log.*
+*.reg
+*.bak
+*.tmp
+config.json
+connection.json
+attachments-*.txt
+diagnostic*.json
+evidence/
+backup*/
